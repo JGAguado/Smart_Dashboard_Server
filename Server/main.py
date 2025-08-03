@@ -7,6 +7,7 @@ import io
 from datetime import datetime
 import pytz
 import sys
+from png_to_epaper_converter import convert_png_to_c_file
 
 # Simple timezone mapping for common cities/countries
 TIMEZONE_MAPPING = {
@@ -838,6 +839,14 @@ class MapGenerator:
             final_image.save(save_path, 'PNG', optimize=True)
             print(f"✅ Map saved to: {save_path} ({self.final_width}x{self.final_height}px)")
 
+            # Generate C array file for e-paper display
+            c_path = os.path.splitext(save_path)[0] + '.c'
+            print(f"🔄 Converting to e-paper format...")
+            if convert_png_to_c_file(save_path, c_path):
+                print(f"✅ E-paper C array saved to: {c_path}")
+            else:
+                print(f"⚠️  Failed to generate e-paper format")
+
             return save_path
 
         except requests.exceptions.RequestException as e:
@@ -882,6 +891,14 @@ class MapGenerator:
             # Save image
             final_image.save(save_path, 'PNG', optimize=True)
             print(f"✅ Map saved to: {save_path} ({self.final_width}x{self.final_height}px)")
+
+            # Generate C array file for e-paper display
+            c_path = os.path.splitext(save_path)[0] + '.c'
+            print(f"🔄 Converting to e-paper format...")
+            if convert_png_to_c_file(save_path, c_path):
+                print(f"✅ E-paper C array saved to: {c_path}")
+            else:
+                print(f"⚠️  Failed to generate e-paper format")
 
             return save_path
 
