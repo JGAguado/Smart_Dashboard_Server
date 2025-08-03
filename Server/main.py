@@ -109,6 +109,9 @@ class MapGenerator:
         self.cache_file = cache_file
         self.locations_cache = self._load_cache()
 
+        # Setup fonts for cross-platform compatibility
+        self.font_path = self._setup_fonts()
+
         # Create Maps folder if it doesn't exist
         self.maps_folder = "Maps"
         if not os.path.exists(self.maps_folder):
@@ -124,6 +127,78 @@ class MapGenerator:
         self.geocoding_url = "https://maps.googleapis.com/maps/api/geocode/json"
         self.weather_url = "http://api.openweathermap.org/data/2.5/weather"
         self.weather_icon_url = "http://openweathermap.org/img/wn/{icon}@2x.png"
+
+    def _setup_fonts(self) -> str:
+        """
+        Download and setup Quicksand font for cross-platform compatibility.
+        Returns path to the font file.
+        """
+        fonts_dir = "fonts"
+        os.makedirs(fonts_dir, exist_ok=True)
+        
+        font_file = os.path.join(fonts_dir, "Quicksand-Medium.ttf")
+        
+        # Check if font already exists
+        if os.path.exists(font_file):
+            print(f"✅ Font already available: {font_file}")
+            return font_file
+        
+        # Download Quicksand font from Google Fonts
+        print("📥 Downloading Quicksand font...")
+        font_url = "https://github.com/andrew-paglinawan/QuicksandFamily/raw/master/fonts/Quicksand-Medium.ttf"
+        
+        try:
+            response = requests.get(font_url, timeout=30)
+            response.raise_for_status()
+            
+            with open(font_file, 'wb') as f:
+                f.write(response.content)
+            
+            print(f"✅ Font downloaded: {font_file}")
+            return font_file
+            
+        except Exception as e:
+            print(f"⚠️ Could not download font: {e}")
+            print("🔄 Falling back to system fonts")
+            return None
+
+    def _get_font(self, size: int):
+        """
+        Get font with specified size, with fallback to system fonts.
+        """
+        try:
+            if self.font_path and os.path.exists(self.font_path):
+                return ImageFont.truetype(self.font_path, size)
+        except Exception as e:
+            print(f"⚠️ Could not load custom font: {e}")
+        
+        # Fallback fonts for different operating systems
+        fallback_fonts = [
+            # Windows fonts
+            "C:/Windows/Fonts/arial.ttf",
+            "arial.ttf",
+            "Arial.ttf",
+            # Linux fonts
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 
+            "/usr/share/fonts/TTF/DejaVuSans.ttf",
+            "DejaVuSans.ttf",
+            "LiberationSans-Regular.ttf",
+            "FreeSans.ttf",
+            # Mac fonts
+            "/System/Library/Fonts/Arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+        ]
+        
+        for font_name in fallback_fonts:
+            try:
+                return ImageFont.truetype(font_name, size)
+            except:
+                continue
+        
+        # Final fallback to default font
+        print(f"⚠️ Using default font for size {size}")
+        return ImageFont.load_default()
 
     def _load_cache(self) -> Dict:
         """Load coordinates cache from JSON file."""
@@ -558,13 +633,24 @@ class MapGenerator:
 
         # Load fonts with consistent sizing
         try:
-            # Use consistent font family and sizing
-            title_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 20)  # City/Country
-            coord_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 14)  # Coordinates
-            temp_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 20)   # Temperature - same as title
-            date_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 14)   # Date - slightly bigger
-            time_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 20)   # Time - same size as temperature
-        except:
+            # Define consistent font sizes for cross-platform compatibility
+            TITLE_SIZE = 20      # City/Country
+            COORD_SIZE = 14      # Coordinates  
+            TEMP_SIZE = 20       # Temperature
+            DATE_SIZE = 14       # Date
+            TIME_SIZE = 20       # Time
+            
+            # Use our cross-platform font loading
+            title_font = self._get_font(TITLE_SIZE)
+            coord_font = self._get_font(COORD_SIZE)
+            temp_font = self._get_font(TEMP_SIZE)
+            date_font = self._get_font(DATE_SIZE)
+            time_font = self._get_font(TIME_SIZE)
+            
+            print(f"🔤 Using fonts - Title: {TITLE_SIZE}px, Coord: {COORD_SIZE}px, Temp: {TEMP_SIZE}px")
+            
+        except Exception as e:
+            print(f"⚠️ Font loading error: {e}")
             # Final fallback to default
             title_font = ImageFont.load_default()
             coord_font = ImageFont.load_default()

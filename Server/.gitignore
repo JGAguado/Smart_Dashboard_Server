@@ -54,6 +54,12 @@ Thumbs.db
 *.tmp
 *.temp
 
+# Downloaded fonts (will be downloaded automatically)
+fonts/*.ttf
+fonts/*.otf
+fonts/*.woff
+fonts/*.woff2
+
 # Don't ignore the generated maps and cache
 !Maps/
 !locations_cache.json
@@ -61,3 +67,6 @@ Thumbs.db
 # Keep VS Code configuration files for project setup
 !.vscode/launch.json
 !.vscode/tasks.json
+
+# Keep fonts directory structure
+!fonts/.gitkeep
