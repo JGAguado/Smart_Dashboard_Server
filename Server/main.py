@@ -73,17 +73,6 @@ def estimate_timezone_from_coordinates(lat: float, lng: float) -> Tuple[str, str
     
     return timezone_name, offset_str
 
-# Handle zoneinfo import for different Python versions
-try:
-    from zoneinfo import ZoneInfo
-    ZONEINFO_AVAILABLE = True
-except ImportError:
-    try:
-        from backports.zoneinfo import ZoneInfo
-        ZONEINFO_AVAILABLE = True
-    except ImportError:
-        ZONEINFO_AVAILABLE = False
-
 class MapGenerator:
     def __init__(self, api_key: str = None, weather_api_key: str = None, cache_file: str = "locations_cache.json"):
         """
@@ -130,62 +119,68 @@ class MapGenerator:
 
     def _setup_fonts(self) -> str:
         """
-        Download and setup Quicksand font for cross-platform compatibility.
+        Setup Quicksand font for cross-platform compatibility.
         Returns path to the font file.
         """
         fonts_dir = "fonts"
         os.makedirs(fonts_dir, exist_ok=True)
         
-        font_file = os.path.join(fonts_dir, "Quicksand-Medium.ttf")
-        
-        # Check if font already exists
+        # Check for the manually added Quicksand variable font
+        font_file = os.path.join(fonts_dir, "Quicksand-VariableFont_wght.ttf")
         if os.path.exists(font_file):
-            print(f"✅ Font already available: {font_file}")
+            print(f"✅ Using Quicksand font (Bold): {font_file}")
             return font_file
         
-        # Download Quicksand font from Google Fonts
-        print("📥 Downloading Quicksand font...")
-        font_url = "https://github.com/andrew-paglinawan/QuicksandFamily/raw/master/fonts/Quicksand-Medium.ttf"
-        
-        try:
-            response = requests.get(font_url, timeout=30)
-            response.raise_for_status()
-            
-            with open(font_file, 'wb') as f:
-                f.write(response.content)
-            
-            print(f"✅ Font downloaded: {font_file}")
-            return font_file
-            
-        except Exception as e:
-            print(f"⚠️ Could not download font: {e}")
-            print("🔄 Falling back to system fonts")
-            return None
+        # If font is not found, return None and use system fonts
+        print("⚠️ Quicksand font not found in fonts folder")
+        print("🔄 Will use system fonts as fallback")
+        return None
 
     def _get_font(self, size: int):
         """
-        Get font with specified size, with fallback to system fonts.
+        Get font with specified size and bold weight, with fallback to system fonts.
         """
         try:
             if self.font_path and os.path.exists(self.font_path):
-                return ImageFont.truetype(self.font_path, size)
+                # For variable fonts, specify a bolder weight (700 = Bold)
+                # Quicksand variable font supports weights from 300 to 700
+                try:
+                    # Load font with bold weight (700)
+                    font = ImageFont.truetype(self.font_path, size)
+                    # For variable fonts, we can set font variations
+                    if hasattr(font, 'set_variation_by_axes'):
+                        font.set_variation_by_axes([700])  # Bold weight
+                    elif hasattr(font, 'set_variation_by_name'):
+                        font.set_variation_by_name(weight=700)
+                    return font
+                except:
+                    # Fallback to regular loading if variation setting fails
+                    return ImageFont.truetype(self.font_path, size)
         except Exception as e:
-            print(f"⚠️ Could not load custom font: {e}")
+            print(f"⚠️ Could not load Quicksand font: {e}")
         
-        # Fallback fonts for different operating systems
+        # Fallback fonts for different operating systems - prioritize bold versions
         fallback_fonts = [
-            # Windows fonts
+            # Windows bold fonts
+            "C:/Windows/Fonts/arialbd.ttf",  # Arial Bold
             "C:/Windows/Fonts/arial.ttf",
+            "arialbd.ttf", 
             "arial.ttf",
             "Arial.ttf",
-            # Linux fonts
+            # Linux bold fonts
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 
+            "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
             "/usr/share/fonts/TTF/DejaVuSans.ttf",
+            "DejaVuSans-Bold.ttf",
             "DejaVuSans.ttf",
+            "LiberationSans-Bold.ttf",
             "LiberationSans-Regular.ttf",
             "FreeSans.ttf",
-            # Mac fonts
+            # Mac bold fonts
+            "/System/Library/Fonts/Arial Bold.ttf",
             "/System/Library/Fonts/Arial.ttf",
             "/System/Library/Fonts/Helvetica.ttc",
         ]
@@ -295,22 +290,6 @@ class MapGenerator:
             raise Exception(f"Network error during geocoding: {e}")
         except KeyError as e:
             raise Exception(f"Unexpected response format from geocoding API: {e}")
-
-    def get_city_info(self, city_name: str) -> Tuple[float, float, int]:
-        """
-        Get coordinates and recommended zoom for a predefined city.
-
-        Args:
-            city_name: Name of the city (vienna, madrid, new_york, tokyo)
-
-        Returns:
-            Tuple with (latitude, longitude, zoom)
-        """
-        city_name = city_name.lower().replace(' ', '_')
-        if city_name in self.cities:
-            return self.cities[city_name]
-        else:
-            raise ValueError(f"City '{city_name}' not found. Available cities: {list(self.cities.keys())}")
 
     def get_weather_data(self, lat: float, lng: float) -> Optional[Dict]:
         """
@@ -613,11 +592,11 @@ class MapGenerator:
         # Work directly on the image
         draw = ImageDraw.Draw(image)
 
-        # Overlay dimensions and position
-        overlay_width = 300
-        overlay_height = 150
-        x = (self.final_width - overlay_width) // 2
-        y = self.final_height - overlay_height - 20
+        # Overlay dimensions and position - optimized for 480x800px
+        overlay_width = 320      # Slightly wider for better text layout
+        overlay_height = 160     # Slightly taller for comfortable spacing
+        x = (self.final_width - overlay_width) // 2  # Centered horizontally
+        y = self.final_height - overlay_height - 30  # 30px margin from bottom
 
         # Draw rounded rectangle directly ON the map with PURE WHITE background
         corner_radius = 15
@@ -633,12 +612,12 @@ class MapGenerator:
 
         # Load fonts with consistent sizing
         try:
-            # Define consistent font sizes for cross-platform compatibility
-            TITLE_SIZE = 20      # City/Country
-            COORD_SIZE = 14      # Coordinates  
-            TEMP_SIZE = 20       # Temperature
-            DATE_SIZE = 14       # Date
-            TIME_SIZE = 20       # Time
+            # Define optimized font sizes for 480x800px dashboard display
+            TITLE_SIZE = 24      # City/Country - larger for prominence  
+            COORD_SIZE = 16      # Coordinates - readable but smaller
+            TEMP_SIZE = 28       # Temperature - prominent, most important
+            DATE_SIZE = 18       # Date - clear and readable
+            TIME_SIZE = 24       # Time - important, same as title
             
             # Use our cross-platform font loading
             title_font = self._get_font(TITLE_SIZE)
@@ -647,7 +626,7 @@ class MapGenerator:
             date_font = self._get_font(DATE_SIZE)
             time_font = self._get_font(TIME_SIZE)
             
-            print(f"🔤 Using fonts - Title: {TITLE_SIZE}px, Coord: {COORD_SIZE}px, Temp: {TEMP_SIZE}px")
+            print(f"🔤 Optimized fonts for 480x800px - Title: {TITLE_SIZE}px, Temp: {TEMP_SIZE}px, Time: {TIME_SIZE}px")
             
         except Exception as e:
             print(f"⚠️ Font loading error: {e}")
@@ -662,8 +641,8 @@ class MapGenerator:
         text_color = (0, 0, 0)  # Pure black
         coord_color = (60, 60, 60)  # Darker gray for coordinates
 
-        # Calculate text positions relative to the overlay box
-        text_y_base = y + 20  # Top margin
+        # Calculate text positions relative to the overlay box - increased margins for better spacing
+        text_y_base = y + 25  # Top margin - more space from top
 
         # City, Country (top line)
         city_text = f"{city.title()}, {country.title()}"
@@ -682,7 +661,7 @@ class MapGenerator:
         text_bbox = draw.textbbox((0, 0), coord_text, font=coord_font)
         text_width = text_bbox[2] - text_bbox[0]
         text_x = x + (overlay_width - text_width) // 2
-        draw.text((text_x, text_y_base + 30), coord_text, fill=coord_color, font=coord_font)
+        draw.text((text_x, text_y_base + 35), coord_text, fill=coord_color, font=coord_font)  # Increased spacing
 
         # Weather and datetime information (bottom section) - properly aligned groups
         if weather_data:
@@ -694,20 +673,18 @@ class MapGenerator:
             temp_text = f"{weather_data['temperature']}°C"
 
             if weather_icon:
-                # Make icon much bigger (2x from previous size)
-                icon_size = 80  # Doubled from 64
+                # Optimized icon size for better proportion with larger fonts
+                icon_size = 80  # Balanced size for dashboard display
 
-                # Ensure weather icon is in RGB mode for proper color display
-                if weather_icon.mode == 'RGBA':
-                    # Create a white background for the icon to avoid transparency issues
-                    icon_bg = Image.new('RGB', weather_icon.size, (255, 255, 255))
-                    icon_bg.paste(weather_icon, (0, 0), weather_icon)
-                    weather_icon = icon_bg
-                elif weather_icon.mode != 'RGB':
-                    weather_icon = weather_icon.convert('RGB')
-
-                # Resize icon for larger layout
+                # Resize first, then handle transparency properly
                 weather_icon = weather_icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
+                
+                # Keep transparency by preserving RGBA mode for proper blending
+                if weather_icon.mode != 'RGBA':
+                    weather_icon = weather_icon.convert('RGBA')
+                
+                # Ensure the icon has proper transparency by checking if it's mostly opaque
+                # If it has a solid background, we'll keep it as is since it's the icon design
 
                 # Calculate dimensions for datetime group (treated as single block)
                 date_bbox = draw.textbbox((0, 0), date_str, font=date_font)
@@ -746,9 +723,10 @@ class MapGenerator:
                 draw.text((date_x, element_y + datetime_y_offset), date_str, fill=text_color, font=date_font)
                 draw.text((time_x, element_y + datetime_y_offset + 20), time_str, fill=text_color, font=time_font)
 
-                # Draw weather icon (center) - vertically centered
+                # Draw weather icon (center) - vertically centered with proper transparency
                 icon_y_offset = (max_height - icon_size) // 2
-                image.paste(weather_icon, (icon_x, element_y + icon_y_offset))
+                # Use the alpha channel as mask for proper transparency blending
+                image.paste(weather_icon, (icon_x, element_y + icon_y_offset), weather_icon)
 
                 # Draw temperature (right) - vertically centered
                 temp_y_offset = (max_height - temp_height) // 2
@@ -912,63 +890,6 @@ class MapGenerator:
         except Exception as e:
             raise Exception(f"Error generating map: {e}")
 
-    def download_map_by_city(self, city: str, custom_zoom: int = None, save_path: str = None, include_weather: bool = True) -> str:
-        """
-        Download and save map for a predefined city.
-
-        Args:
-            city: Name of predefined city
-            custom_zoom: Custom zoom level (optional)
-            save_path: Path to save image (optional)
-            include_weather: Whether to include weather overlay
-
-        Returns:
-            Path of saved file
-        """
-        lat, lng, default_zoom = self.get_city_info(city)
-        zoom = custom_zoom if custom_zoom is not None else default_zoom
-
-        # Get weather data if requested
-        weather_data = None
-        if include_weather:
-            weather_data = self.get_weather_data(lat, lng)
-
-        # Generate base map
-        url = self.generate_map_url(lat, lng, zoom)
-        print(f"��️  Generating map for {city} (zoom: {zoom})...")
-
-        try:
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
-
-            # Verify response contains an image
-            if 'image' not in response.headers.get('content-type', ''):
-                raise Exception("Response does not contain a valid image")
-
-            # Process square image
-            square_image = Image.open(io.BytesIO(response.content))
-
-            # Crop to final size to avoid deformation
-            final_image = self.crop_to_final_size(square_image)
-
-            # Add information overlay (use city name as country for predefined cities)
-            final_image = self.add_info_overlay(final_image, city, "Predefined", lat, lng, weather_data)
-
-            # Generate save path
-            if not save_path:
-                save_path = os.path.join(self.maps_folder, f"{city}_{zoom}.png")
-
-            # Save image
-            final_image.save(save_path, 'PNG', optimize=True)
-            print(f"✅ Map saved to: {save_path} ({self.final_width}x{self.final_height}px)")
-
-            return save_path
-
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Network error: {e}")
-        except Exception as e:
-            raise Exception(f"Error generating map: {e}")
-
     def list_cached_locations(self) -> Dict:
         """
         Get all cached locations.
@@ -983,31 +904,6 @@ class MapGenerator:
         self.locations_cache.clear()
         self._save_cache()
         print("🗑️  Cache cleared")
-
-    def generate_all_predefined_cities(self, custom_zoom: int = None) -> Dict[str, str]:
-        """
-        Generate maps for all predefined cities.
-
-        Args:
-            custom_zoom: Custom zoom level for all cities (optional)
-
-        Returns:
-            Dictionary with city: file_path
-        """
-        results = {}
-        print(f"🌍 Generating maps for {len(self.cities)} predefined cities...")
-        print(f"📐 Final size: {self.final_width}x{self.final_height}px")
-
-        for city in self.cities.keys():
-            try:
-                file_path = self.download_map_by_city(city, custom_zoom)
-                results[city] = file_path
-            except Exception as e:
-                print(f"❌ Error generating map for {city}: {e}")
-                results[city] = None
-
-        print(f"\n✅ Process completed. {len([r for r in results.values() if r])} maps generated.")
-        return results
 
 
 def main():
