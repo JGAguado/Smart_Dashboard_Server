@@ -112,8 +112,14 @@ class EpaperColorConverter:
         print(f"Supported resolutions: {self.SUPPORTED_RESOLUTIONS}")
         return None, None, False
     
-    def convert_png_to_epaper(self, input_path, output_path=None):
-        """Convert PNG image to 7-color e-paper C array format with Floyd-Steinberg dithering."""
+    def convert_png_to_epaper(self, input_path, output_path=None, generate_c_file=False):
+        """Convert PNG image to 7-color e-paper binary format with Floyd-Steinberg dithering.
+        
+        Args:
+            input_path: Path to input PNG file
+            output_path: Path for C array file (only used if generate_c_file=True)
+            generate_c_file: Whether to generate C array file (for debugging/development)
+        """
         try:
             print(f"Converting: {input_path}")
             
@@ -177,44 +183,111 @@ class EpaperColorConverter:
                 
                 print(f"Conversion complete: {len(output_buffer)} bytes generated")
                 
-                # Generate C array code
-                c_code = f"// 7 Color Image Data {target_width}*{target_height}\n"
-                c_code += f"const unsigned char Image7color[{len(output_buffer)}] = {{\n"
-                
-                for i, byte_val in enumerate(output_buffer):
-                    if i % 16 == 0 and i > 0:
-                        c_code += "\n"
-                    c_code += f"0x{byte_val:02X},"
-                
-                c_code += "\n};\n"
-                
-                # Save to file if output path provided
+                # Always save binary file (this is the main output for ESP32)
+                bin_path = None
                 if output_path:
+                    # Generate binary file path
+                    bin_path = output_path.replace('.c', '.bin')
+                else:
+                    # Generate binary file path from input
+                    base_name = os.path.splitext(input_path)[0]
+                    bin_path = f"{base_name}.bin"
+                
+                with open(bin_path, 'wb') as f:
+                    f.write(output_buffer)
+                print(f"✅ Binary file saved to: {bin_path}")
+                
+                # Optionally generate C array code (for development/debugging)
+                if generate_c_file and output_path:
+                    c_code = f"// 7 Color Image Data {target_width}*{target_height}\n"
+                    c_code += f"const unsigned char Image7color[{len(output_buffer)}] = {{\n"
+                    
+                    for i, byte_val in enumerate(output_buffer):
+                        if i % 16 == 0 and i > 0:
+                            c_code += "\n"
+                        c_code += f"0x{byte_val:02X},"
+                    
+                    c_code += "\n};\n"
+                    
+                    # Save C array file
                     with open(output_path, 'w') as f:
                         f.write(c_code)
                     print(f"✅ C array saved to: {output_path}")
+                    
+                    return c_code
                 
-                return c_code
+                # Return binary file path instead of C code when not generating C file
+                return bin_path
                 
         except Exception as e:
             print(f"❌ Error converting image: {e}")
             return None
 
 
-def convert_png_to_c_file(png_path, c_path=None):
+def convert_png_to_c_file(png_path, c_path=None, generate_c_file=True):
     """
-    Convenience function to convert PNG to C array file.
+    Convenience function to convert PNG to binary/C array file.
     
     Args:
         png_path: Path to PNG file
         c_path: Output C file path (if None, uses PNG name with .c extension)
+        generate_c_file: Whether to generate C array file (defaults to True for compatibility)
     
     Returns:
-        bool: True if successful, False otherwise
+        str: Path to generated binary file, or None if failed
     """
-    if c_path is None:
+    if c_path is None and generate_c_file:
         c_path = os.path.splitext(png_path)[0] + '.c'
     
     converter = EpaperColorConverter()
-    result = converter.convert_png_to_epaper(png_path, c_path)
-    return result is not None
+    result = converter.convert_png_to_epaper(png_path, c_path, generate_c_file)
+    return result
+
+
+def convert_png_to_bin_only(png_path):
+    """
+    Streamlined function to convert PNG to binary file only (no C file generated).
+    This is the optimal workflow for production firmware.
+    
+    Args:
+        png_path: Path to PNG file
+    
+    Returns:
+        str: Path to generated binary file, or None if failed
+    """
+    converter = EpaperColorConverter()
+    result = converter.convert_png_to_epaper(png_path, generate_c_file=False)
+    return result
+
+
+# Test when run directly
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) > 1:
+        png_file = sys.argv[1]
+        print(f"Converting {png_file} to binary only...")
+        bin_path = convert_png_to_bin_only(png_file)
+        if bin_path:
+            # Verify binary file
+            import os
+            size = os.path.getsize(bin_path)
+            print(f"✅ Success! Binary file: {bin_path} ({size} bytes)")
+            
+            # Quick verification: 800x480 should be exactly 192000 bytes
+            expected_size = 800 * 480 // 2  # 4-bit packed
+            if size == expected_size:
+                print("✅ Binary size verification passed!")
+            else:
+                print(f"⚠️  Unexpected size: got {size}, expected {expected_size}")
+        else:
+            print("❌ Conversion failed")
+    else:
+        # Test with Vienna image
+        print("Testing binary-only conversion with Vienna_Austria.png...")
+        bin_path = convert_png_to_bin_only('Maps/Vienna_Austria.png')
+        if bin_path:
+            import os
+            size = os.path.getsize(bin_path)
+            print(f"✅ Success! Binary file: {bin_path} ({size} bytes)")
+            print("✅ No C file generated - streamlined for firmware efficiency!")

@@ -839,11 +839,14 @@ class MapGenerator:
             final_image.save(save_path, 'PNG', optimize=True)
             print(f"✅ Map saved to: {save_path} ({self.final_width}x{self.final_height}px)")
 
-            # Generate C array file for e-paper display with Floyd-Steinberg dithering
+            # Generate C array and binary files for e-paper display with Floyd-Steinberg dithering
             c_path = os.path.splitext(save_path)[0] + '.c'
             print(f"🔄 Converting to e-paper format with Floyd-Steinberg dithering...")
             if convert_png_to_c_file(save_path, c_path):
                 print(f"✅ E-paper C array saved to: {c_path}")
+                # Binary file is automatically generated alongside C file
+                bin_path = os.path.splitext(save_path)[0] + '.bin'
+                print(f"✅ E-paper binary saved to: {bin_path} (firmware will fetch this)")
             else:
                 print(f"⚠️  Failed to generate e-paper format")
 
