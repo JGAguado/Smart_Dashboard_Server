@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 PNG to 7-Color E-Paper Converter for ESP32-S2 Smart Dashboard
+Uses Floyd-Steinberg dithering for optimal image quality on 7-color e-paper displays.
 """
 
 import numpy as np
@@ -9,7 +10,7 @@ import os
 
 
 class EpaperColorConverter:
-    """Converts PNG images to 7-color e-paper C array format"""
+    """Converts PNG images to 7-color e-paper C array format with Floyd-Steinberg dithering"""
     
     # 7-color e-paper palette (RGB values)
     PALETTE = [
@@ -35,6 +36,50 @@ class EpaperColorConverter:
         distances = np.sum((self.palette_array - rgb_array) ** 2, axis=1)
         return np.argmin(distances)
     
+    def apply_floyd_steinberg_dithering(self, img_array):
+        """
+        Apply Floyd-Steinberg dithering to improve color representation.
+        This distributes quantization error to neighboring pixels.
+        """
+        height, width, channels = img_array.shape
+        dithered = img_array.astype(np.float32)
+        
+        print("Applying Floyd-Steinberg dithering...")
+        
+        for y in range(height):
+            for x in range(width):
+                # Get current pixel
+                old_pixel = dithered[y, x].copy()
+                
+                # Find closest palette color
+                closest_color_idx = self.find_closest_color(old_pixel)
+                new_pixel = np.array(self.PALETTE[closest_color_idx], dtype=np.float32)
+                
+                # Set the new color
+                dithered[y, x] = new_pixel
+                
+                # Calculate quantization error
+                error = old_pixel - new_pixel
+                
+                # Distribute error to neighboring pixels
+                # Floyd-Steinberg distribution pattern:
+                #   X   7/16
+                # 3/16 5/16 1/16
+                
+                if x + 1 < width:
+                    dithered[y, x + 1] += error * (7/16)
+                
+                if y + 1 < height:
+                    if x - 1 >= 0:
+                        dithered[y + 1, x - 1] += error * (3/16)
+                    dithered[y + 1, x] += error * (5/16)
+                    if x + 1 < width:
+                        dithered[y + 1, x + 1] += error * (1/16)
+        
+        # Clamp values to valid range
+        dithered = np.clip(dithered, 0, 255)
+        return dithered.astype(np.uint8)
+    
     def validate_image_size(self, width, height):
         """Validate image dimensions and check if rotation is needed."""
         # Check if image is in portrait and can be rotated to fit landscape
@@ -53,7 +98,7 @@ class EpaperColorConverter:
         return None, None, False
     
     def convert_png_to_epaper(self, input_path, output_path=None):
-        """Convert PNG image to 7-color e-paper C array format."""
+        """Convert PNG image to 7-color e-paper C array format with Floyd-Steinberg dithering."""
         try:
             print(f"Converting: {input_path}")
             
@@ -87,7 +132,10 @@ class EpaperColorConverter:
                 # Convert image to numpy array
                 img_array = np.array(img)
                 
-                print("Converting colors to e-paper palette...")
+                # Apply Floyd-Steinberg dithering
+                dithered_array = self.apply_floyd_steinberg_dithering(img_array)
+                
+                print("Converting dithered image to e-paper format...")
                 
                 # Create output buffer
                 buffer_size = (target_width * target_height) // 2
@@ -97,12 +145,12 @@ class EpaperColorConverter:
                 for y in range(target_height):
                     for x in range(0, target_width, 2):  # Process 2 pixels at a time
                         # Get first pixel color
-                        rgb1 = tuple(img_array[y, x])
+                        rgb1 = tuple(dithered_array[y, x])
                         color1 = self.find_closest_color(rgb1)
                         
                         # Get second pixel color (handle odd width)
                         if x + 1 < target_width:
-                            rgb2 = tuple(img_array[y, x + 1])
+                            rgb2 = tuple(dithered_array[y, x + 1])
                             color2 = self.find_closest_color(rgb2)
                         else:
                             color2 = color1  # Duplicate last pixel if odd width
@@ -127,20 +175,15 @@ class EpaperColorConverter:
                 
                 # Save to file if output path provided
                 if output_path:
-                    if output_path.endswith('.c'):
-                        with open(output_path, 'w') as f:
-                            f.write(c_code)
-                        print(f"✅ C array saved to: {output_path}")
-                    else:
-                        with open(output_path, 'wb') as f:
-                            f.write(output_buffer)
-                        print(f"✅ Binary data saved to: {output_path}")
+                    with open(output_path, 'w') as f:
+                        f.write(c_code)
+                    print(f"✅ C array saved to: {output_path}")
                 
-                return c_code, bytes(output_buffer)
+                return c_code
                 
         except Exception as e:
             print(f"❌ Error converting image: {e}")
-            return None, None
+            return None
 
 
 def convert_png_to_c_file(png_path, c_path=None):
@@ -158,13 +201,5 @@ def convert_png_to_c_file(png_path, c_path=None):
         c_path = os.path.splitext(png_path)[0] + '.c'
     
     converter = EpaperColorConverter()
-    result_c, result_binary = converter.convert_png_to_epaper(png_path, c_path)
-    
-    # Also save binary version for ESP32 firmware
-    bin_path = os.path.splitext(c_path)[0] + '.bin'
-    if result_binary is not None:
-        with open(bin_path, 'wb') as f:
-            f.write(result_binary)
-        print(f"✅ Binary data saved to: {bin_path}")
-    
-    return result_c is not None
+    result = converter.convert_png_to_epaper(png_path, c_path)
+    return result is not None
