@@ -54,11 +54,6 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Downloaded fonts (will be downloaded automatically)
-fonts/*.ttf
-fonts/*.otf
-fonts/*.woff
-fonts/*.woff2
 
 # Don't ignore the generated maps and cache
 !Maps/
