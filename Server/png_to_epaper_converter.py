@@ -36,6 +36,21 @@ class EpaperColorConverter:
         distances = np.sum((self.palette_array - rgb_array) ** 2, axis=1)
         return np.argmin(distances)
     
+    def quantize_to_palette(self, img_array):
+        """Simple quantization to palette colors without dithering."""
+        height, width, channels = img_array.shape
+        quantized = np.zeros_like(img_array)
+        
+        print("Applying simple quantization (no dithering)...")
+        
+        for y in range(height):
+            for x in range(width):
+                original_pixel = img_array[y, x]
+                closest_color_idx = self.find_closest_color(original_pixel)
+                quantized[y, x] = self.PALETTE[closest_color_idx]
+        
+        return quantized.astype(np.uint8)
+    
     def apply_floyd_steinberg_dithering(self, img_array):
         """
         Apply Floyd-Steinberg dithering to improve color representation.
