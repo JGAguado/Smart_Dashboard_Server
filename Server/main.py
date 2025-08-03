@@ -533,14 +533,14 @@ class MapGenerator:
 
                 # BUILDINGS WITH HIGH CONTRAST GRAY TONES
                 # General urban/man-made areas - Very light gray
-                'feature:landscape.man_made|element:geometry|color:0xf8f8f8',
+                'feature:landscape.man_made|element:geometry|color:0x808080',
 
                 # Low-density residential - Light gray
-                'feature:poi.business|element:geometry|color:0xdddddd',
+                'feature:poi.business|element:geometry|color:0x808080',
 
                 # Commercial/office buildings - Medium gray
-                'feature:poi.government|element:geometry|color:0xbbbbbb',
-                'feature:poi.medical|element:geometry|color:0xaaaaaa',
+                'feature:poi.government|element:geometry|color:0x808080',
+                'feature:poi.medical|element:geometry|color:0x808080',
 
                 # Important/institutional buildings - Dark gray
                 'feature:poi.school|element:geometry|color:0x999999',
