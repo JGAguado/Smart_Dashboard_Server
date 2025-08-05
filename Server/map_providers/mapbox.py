@@ -127,15 +127,8 @@ class MapboxProvider:
                 'retina': '@2x'
             }
             
-            print(f"🔗 Request URL: {endpoint}")
-            print(f"📋 Parameters: {params}")
-            
             # Make the request
             response = requests.get(endpoint, params=params)
-            
-            print(f"📡 Response status: {response.status_code}")
-            print(f"📄 Content type: {response.headers.get('content-type', 'unknown')}")
-            print(f"📦 Content length: {len(response.content)} bytes")
             
             if response.status_code != 200:
                 print(f"❌ Map download failed: {response.status_code} - {response.text}")
@@ -151,7 +144,6 @@ class MapboxProvider:
                 background.paste(image, mask=image.split()[3] if len(image.split()) == 4 else None)
                 image = background
             
-            print(f"🗺️  Mapbox map generated: {image.size}, zoom {zoom}")
             
             # Save debug PNG if requested
             if save_debug_png:
@@ -192,7 +184,6 @@ class MapboxProvider:
         Returns:
             PIL Image object or None if failed
         """
-        print(f"🎨 Generating clean Mapbox map: Minimal labels, no attribution")
         
         # Use standard e-paper dimensions
         return self.download_map(
