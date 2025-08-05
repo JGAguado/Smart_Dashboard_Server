@@ -20,6 +20,21 @@
     "country": "Germany",
     "formatted_address": "Berlin, Germany"
   },
+  "madrid, spain": {
+    "lat": 40.41672790000001,
+    "lng": -3.7032905,
+    "city": "Madrid",
+    "country": "Spain",
+    "formatted_address": "Madrid, Spain"
+  },
+  "test city, test country": {
+    "lat": 48.2082,
+    "lng": 16.3738,
+    "city": "Test City",
+    "country": "Test Country",
+    "timestamp": "2025-08-04T14:42:02.943912",
+    "timezone": "Europe/Vienna"
+  },
   "vienna, austria": {
     "lat": 48.20806959999999,
     "lng": 16.3713095,
@@ -28,12 +43,5 @@
     "formatted_address": "Vienna, Austria",
     "timezone": "Europe/Vienna",
     "utc_offset": "+2"
-  },
-  "madrid, spain": {
-    "lat": 40.41672790000001,
-    "lng": -3.7032905,
-    "city": "Madrid",
-    "country": "Spain",
-    "formatted_address": "Madrid, Spain"
   }
 }

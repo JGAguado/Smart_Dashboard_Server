@@ -6,7 +6,7 @@ Handles map downloading, geocoding, and traffic integration for e-paper displays
 
 import os
 import requests
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple
 from PIL import Image
 import io
 
@@ -178,8 +178,7 @@ class MapboxProvider:
                           lat: float, 
                           lng: float, 
                           zoom: int = 13, 
-                          include_traffic: bool = False,
-                          style: str = "clean") -> Optional[Image.Image]:
+                          style: str = "default") -> Optional[Image.Image]:
         """
         Generate map image compatible with main_modular.py expectations.
         
@@ -202,7 +201,7 @@ class MapboxProvider:
             zoom=zoom,
             width=480,
             height=800,
-            style="default",  # Use your default clean style
+            style=style, 
             save_debug_png=False
         )
     
@@ -227,54 +226,6 @@ class MapboxProvider:
         }
         
         return styles.get(style, styles["default"])
-    
-    def generate_traffic_map(self, lat: float, lng: float, zoom: int = 13) -> Optional[Image.Image]:
-        """
-        Generate map with traffic included in the style (since Mapbox styles can include traffic).
-        This method is used by main_modular.py for traffic maps.
-        
-        Args:
-            lat: Latitude
-            lng: Longitude
-            zoom: Zoom level
-            
-        Returns:
-            PIL Image object with traffic data included in style
-        """
-        print(f"🚦 Generating Mapbox map with traffic-enabled style")
-        return self.generate_map_image(lat, lng, zoom, include_traffic=True)
-    
-    def test_traffic_availability(self, lat: float, lng: float) -> bool:
-        """
-        Test if traffic data is available for the given coordinates.
-        For Mapbox, traffic is included in styles, so this always returns True.
-        
-        Args:
-            lat: Latitude
-            lng: Longitude
-            
-        Returns:
-            Always True since traffic is included in Mapbox styles
-        """
-        print(f"🚦 Mapbox traffic is included in styles - always available")
-        return True
-    
-    def get_usage_info(self) -> Dict:
-        """
-        Get usage information for the Mapbox provider.
-        
-        Returns:
-            Dictionary with usage information
-        """
-        return {
-            'provider': 'Mapbox',
-            'features': ['Static Maps', 'Geocoding', 'Traffic (via styles)', 'Custom Styles'],
-            'monthly_limit': '200,000 requests',
-            'current_style': 'default (cmdxbgtdp001501r2a5zl20e3)',
-            'available_styles': ['default', 'blueprint', 'light', 'dark', 'satellite', 'streets'],
-            'traffic_method': 'Included in custom styles',
-            'status': 'Operational' if self.is_available() else 'Unavailable'
-        }
     
     def _get_clean_style_id(self, include_traffic: bool = False) -> str:
         """

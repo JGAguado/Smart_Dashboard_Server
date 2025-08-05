@@ -8,6 +8,7 @@ from datetime import datetime
 import pytz
 import sys
 from png_to_epaper_converter import convert_png_to_c_file
+from map_providers.mapbox import get_mapbox_provider
 
 # Simple timezone mapping for common cities/countries
 TIMEZONE_MAPPING = {
@@ -75,22 +76,21 @@ def estimate_timezone_from_coordinates(lat: float, lng: float) -> Tuple[str, str
     return timezone_name, offset_str
 
 class MapGenerator:
-    def __init__(self, api_key: str = None, weather_api_key: str = None, cache_file: str = "locations_cache.json"):
+    def __init__(self, weather_api_key: str = None, cache_file: str = "locations_cache.json"):
         """
-        Initialize the map generator.
+        Initialize the map generator with Mapbox.
 
         Args:
-            api_key: Google Maps API key. If not provided,
-                    will try to get it from GOOGLE_MAPS_API_KEY environment variable
             weather_api_key: OpenWeatherMap API key. If not provided,
                     will try to get it from OPENWEATHER_API_KEY environment variable
             cache_file: Path to JSON file for caching coordinates
         """
-        self.api_key = api_key or os.getenv('GOOGLE_MAPS_API_KEY')
-        self.weather_api_key = weather_api_key or os.getenv('OPENWEATHER_API_KEY')
+        # Initialize Mapbox provider
+        self.mapbox = get_mapbox_provider()
+        if not self.mapbox.is_available():
+            raise ValueError("Mapbox API key is required. Please set MAPBOX_API_KEY environment variable.")
 
-        if not self.api_key:
-            raise ValueError("Google Maps API key is required. Either provide it during initialization or set GOOGLE_MAPS_API_KEY environment variable.")
+        self.weather_api_key = weather_api_key or os.getenv('OPENWEATHER_API_KEY')
 
         if not self.weather_api_key:
             print("⚠️  OpenWeatherMap API key not found. Weather info will be disabled.")
@@ -108,13 +108,9 @@ class MapGenerator:
             os.makedirs(self.maps_folder)
             print(f"📁 Created {self.maps_folder} folder")
 
-
         # Image configuration - use square to avoid deformation
-        self.square_size = 800  # Square size for download
         self.final_width = 480  # Final width after crop
         self.final_height = 800 # Final height after crop
-        self.base_url = "https://maps.googleapis.com/maps/api/staticmap"
-        self.geocoding_url = "https://maps.googleapis.com/maps/api/geocode/json"
         self.weather_url = "http://api.openweathermap.org/data/2.5/weather"
         self.weather_icon_url = "http://openweathermap.org/img/wn/{icon}@2x.png"
 
@@ -227,7 +223,7 @@ class MapGenerator:
     def get_coordinates_from_location(self, city: str, country: str) -> Tuple[float, float]:
         """
         Get coordinates (lat, lng) for a city and country.
-        First checks cache, then uses Google Geocoding API if not cached.
+        First checks cache, then uses Mapbox Geocoding API if not cached.
 
         Args:
             city: City name
@@ -248,31 +244,11 @@ class MapGenerator:
             print(f"📍 Found cached coordinates for {city}, {country}: {lat:.4f}, {lng:.4f}")
             return lat, lng
 
-        # If not cached, get from API
+        # If not cached, get from Mapbox API
         print(f"🔍 Looking up coordinates for {city}, {country}...")
-        address = f"{city}, {country}"
-
-        params = {
-            'address': address,
-            'key': self.api_key
-        }
-
+        
         try:
-            response = requests.get(self.geocoding_url, params=params, timeout=10)
-            response.raise_for_status()
-
-            data = response.json()
-
-            if data['status'] != 'OK':
-                raise Exception(f"Geocoding API error: {data['status']}")
-
-            if not data['results']:
-                raise Exception(f"No results found for '{address}'")
-
-            # Get the first result's location
-            location = data['results'][0]['geometry']['location']
-            lat = location['lat']
-            lng = location['lng']
+            lat, lng = self.mapbox.get_coordinates(city, country)
 
             # Cache the result
             self.locations_cache[cache_key] = {
@@ -280,17 +256,15 @@ class MapGenerator:
                 'lng': lng,
                 'city': city.title(),
                 'country': country.title(),
-                'formatted_address': data['results'][0]['formatted_address']
+                'formatted_address': f"{city.title()}, {country.title()}"
             }
             self._save_cache()
 
             print(f"📍 Found and cached coordinates for {city}, {country}: {lat:.4f}, {lng:.4f}")
             return lat, lng
 
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Network error during geocoding: {e}")
-        except KeyError as e:
-            raise Exception(f"Unexpected response format from geocoding API: {e}")
+        except Exception as e:
+            raise Exception(f"Mapbox geocoding error: {e}")
 
     def get_weather_data(self, lat: float, lng: float) -> Optional[Dict]:
         """
@@ -479,97 +453,20 @@ class MapGenerator:
             time_str = utc_time.strftime("%H:%M")
             return date_str, time_str, "UTC", "±0"
 
-    def generate_map_url(self, lat: float, lng: float, zoom: int = 12, map_type: str = 'roadmap') -> str:
+    def generate_map_image(self, lat: float, lng: float, zoom: int = 12, style: str = 'default') -> Image.Image:
         """
-        Generate URL for static map with enhanced styling including better building contrast.
+        Generate map image using Mapbox provider.
 
         Args:
             lat: Latitude
             lng: Longitude
             zoom: Zoom level (1-20)
-            map_type: Map type (roadmap, satellite, hybrid, terrain)
+            style: Map style (default, satellite, blueprint, etc.)
 
         Returns:
-            Static map URL
+            PIL Image object
         """
-        params = {
-            'center': f"{lat},{lng}",
-            'zoom': zoom,
-            'size': f"{self.square_size}x{self.square_size}",  # Square to avoid deformation
-            'maptype': map_type,
-            'scale': 2,  # High resolution
-            'format': 'png',
-            'key': self.api_key,
-            'style': [
-                # REMOVE ALL LABELS
-                'feature:all|element:labels|visibility:off',
-                'feature:administrative|element:labels|visibility:off',
-                'feature:poi|element:labels|visibility:off',
-                'feature:road|element:labels|visibility:off',
-                'feature:transit|element:labels|visibility:off',
-
-                # Landscape and background colors
-                'feature:landscape|element:all|color:0xf2f2f2',
-                'feature:landscape.natural|element:geometry|color:0xe8e8e8',
-
-                # PARKS AND GREEN AREAS (GREEN)
-                'feature:landscape.natural.landcover|element:geometry|color:0x8bc34a',
-                'feature:poi.park|element:geometry|color:0x66bb6a',
-                'feature:landscape.natural.terrain|element:geometry|color:0xa5d6a7',
-
-                # WATER BODIES (BLUE)
-                'feature:water|element:all|color:0x42a5f5',
-                'feature:water|element:geometry|color:0x1976d2',
-
-                # ROADS (basic colors - traffic overlay not available in static maps)
-                'feature:road|element:geometry|color:0xffffff',
-                'feature:road|element:geometry.stroke|color:0xe0e0e0',
-                'feature:road.highway|element:geometry|color:0xffc107',
-                'feature:road.highway|element:geometry.stroke|color:0xff8f00',
-                'feature:road.arterial|element:geometry|color:0xffffff',
-                'feature:road.arterial|element:geometry.stroke|color:0xbdbdbd',
-                'feature:road.local|element:geometry|color:0xffffff',
-                'feature:road.local|element:geometry.stroke|color:0xe0e0e0',
-
-                # BUILDINGS WITH HIGH CONTRAST GRAY TONES
-                # General urban/man-made areas - Very light gray
-                'feature:landscape.man_made|element:geometry|color:0x808080',
-
-                # Low-density residential - Light gray
-                'feature:poi.business|element:geometry|color:0x808080',
-
-                # Commercial/office buildings - Medium gray
-                'feature:poi.government|element:geometry|color:0x808080',
-                'feature:poi.medical|element:geometry|color:0x808080',
-
-                # Important/institutional buildings - Dark gray
-                'feature:poi.school|element:geometry|color:0x999999',
-                'feature:poi.place_of_worship|element:geometry|color:0x888888',
-
-                # High-rise/urban core - Very dark gray
-                'feature:poi.establishment|element:geometry|color:0x777777',
-                'feature:poi.point_of_interest|element:geometry|color:0x666666',
-
-                # LAND/SOIL (BROWN)
-                'feature:landscape.natural.terrain|element:geometry|color:0x8d6e63',
-
-                # Public transport
-                'feature:transit|element:all|visibility:off'
-            ]
-        }
-
-        # Build URL
-        url = self.base_url + '?'
-        url_params = []
-
-        for key, value in params.items():
-            if key == 'style':
-                for style in value:
-                    url_params.append(f"style={style}")
-            else:
-                url_params.append(f"{key}={value}")
-
-        return url + '&'.join(url_params)
+        return self.mapbox.generate_map_image(lat, lng, zoom, style)
 
     def add_info_overlay(self, image: Image.Image, city: str, country: str, lat: float, lng: float, weather_data: Optional[Dict] = None) -> Image.Image:
         """
@@ -808,20 +705,12 @@ class MapGenerator:
         if include_weather:
             weather_data = self.get_weather_data(lat, lng)
 
-        # Generate base map
-        url = self.generate_map_url(lat, lng, zoom)
+        # Generate base map using Mapbox
         print(f"🗺️  Generating map for {city}, {country} (zoom: {zoom})...")
-
+        
         try:
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
-
-            # Verify response contains an image
-            if 'image' not in response.headers.get('content-type', ''):
-                raise Exception("Response does not contain a valid image")
-
-            # Process square image
-            square_image = Image.open(io.BytesIO(response.content))
+            # Generate square image using Mapbox
+            square_image = self.generate_map_image(lat, lng, zoom, style='default')
 
             # Crop to final size to avoid deformation
             final_image = self.crop_to_final_size(square_image)
@@ -871,18 +760,10 @@ class MapGenerator:
             Path of saved file
         """
         try:
-            url = self.generate_map_url(lat, lng, zoom)
             print(f"🗺️  Generating map for ({lat:.4f}, {lng:.4f}) with zoom: {zoom}...")
 
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
-
-            # Verify response contains an image
-            if 'image' not in response.headers.get('content-type', ''):
-                raise Exception("Response does not contain a valid image")
-
-            # Process square image
-            square_image = Image.open(io.BytesIO(response.content))
+            # Generate square image using Mapbox
+            square_image = self.generate_map_image(lat, lng, zoom, style='default')
 
             # Crop to final size to avoid deformation
             final_image = self.crop_to_final_size(square_image)
@@ -905,8 +786,6 @@ class MapGenerator:
 
             return save_path
 
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Network error: {e}")
         except Exception as e:
             raise Exception(f"Error generating map: {e}")
 
@@ -931,16 +810,16 @@ def main():
     print("🗺️  Enhanced Map Generator - 480x800px (no deformation)")
     print("=" * 65)
 
-    # Check for API key
-    api_key = os.getenv('GOOGLE_MAPS_API_KEY')
-    if not api_key:
-        print("❌ Google Maps API key not found!")
-        print("   Please set GOOGLE_MAPS_API_KEY environment variable")
-        print("   or provide the key when initializing MapGenerator")
+    # Check for Mapbox API key
+    mapbox_provider = get_mapbox_provider()
+    if not mapbox_provider.is_available():
+        print("❌ Mapbox API key not found!")
+        print("   Please set MAPBOX_API_KEY environment variable")
+        print("   Get your FREE key at: https://account.mapbox.com/")
         return
 
     try:
-        # Initialize generator
+        # Initialize generator with Mapbox provider
         map_gen = MapGenerator()
 
         # Test locations
