@@ -15,7 +15,7 @@ from PIL import Image
 # Import specialized modules
 from data_providers import WeatherProvider, GeolocationProvider
 from image_composition import OverlayComposer
-from utils import EpaperConverter
+from utils import EpaperConverter, visualize_epaper_binary
 from map_providers.mapbox import get_mapbox_provider
 from config.settings import PathConfig
 
@@ -217,6 +217,19 @@ class MapGenerator:
             # Generate C array and binary files for e-paper display
             c_path, bin_path = self.epaper_converter.convert_png_to_epaper(save_path)
             
+            # Generate e-paper visualization PNG
+            if bin_path and os.path.exists(bin_path):
+                # Create visualization filename: City_Country_epd.png
+                base_name = os.path.splitext(save_path)[0]
+                epd_png_path = f"{base_name}_epd.png"
+                
+                print("🖼️  Generating e-paper visualization...")
+                visualized_path = visualize_epaper_binary(bin_path, epd_png_path)
+                if visualized_path:
+                    print(f"✅ E-paper preview saved to: {visualized_path}")
+                else:
+                    print("⚠️  Failed to generate e-paper visualization")
+            
             return save_path
 
         except Exception as e:
@@ -254,6 +267,19 @@ class MapGenerator:
 
             # Generate C array and binary files for e-paper display
             c_path, bin_path = self.epaper_converter.convert_png_to_epaper(save_path)
+
+            # Generate e-paper visualization PNG
+            if bin_path and os.path.exists(bin_path):
+                # Create visualization filename: map_lat_lng_zoom_epd.png
+                base_name = os.path.splitext(save_path)[0]
+                epd_png_path = f"{base_name}_epd.png"
+                
+                print("🖼️  Generating e-paper visualization...")
+                visualized_path = visualize_epaper_binary(bin_path, epd_png_path)
+                if visualized_path:
+                    print(f"✅ E-paper preview saved to: {visualized_path}")
+                else:
+                    print("⚠️  Failed to generate e-paper visualization")
 
             return save_path
 

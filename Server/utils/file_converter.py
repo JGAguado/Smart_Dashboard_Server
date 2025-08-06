@@ -6,7 +6,7 @@ Wrapper around the existing PNG to e-paper converter functionality.
 """
 
 import os
-from png_to_epaper_converter import convert_png_to_c_file
+from .png_to_epaper_converter import convert_png_to_c_file
 
 
 class EpaperConverter:
