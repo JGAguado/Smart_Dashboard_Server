@@ -12,12 +12,16 @@ class APIConfig:
     """API keys and endpoints configuration"""
     
     # API Keys (from environment variables)
-    MAPBOX_ACCESS_TOKEN = os.getenv('MAPBOX_ACCESS_TOKEN')  # Mapbox - Superior styling & traffic
+    MAPBOX_ACCESS_TOKEN = os.getenv('MAPBOX_ACCESS_TOKEN')  
     OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY')
+    GEONAMES_USERNAME = os.getenv('GEONAMES_USERNAME')  # Free account at geonames.org
 
 
     # Mapbox API (superior styling and traffic)
     MAPBOX_BASE_URL = "https://api.mapbox.com"
+    
+    # Geonames API (timezone data)
+    GEONAMES_TIMEZONE_URL = "http://api.geonames.org/timezoneJSON"
     
     # Weather API
     OPENWEATHER_CURRENT_URL = "http://api.openweathermap.org/data/2.5/weather"
@@ -214,13 +218,20 @@ def validate_configuration():
     errors = []
     warnings = []
     
-
+    # Check required API keys
+    if not APIConfig.MAPBOX_ACCESS_TOKEN:
+        errors.append("Mapbox API key not found. Set MAPBOX_ACCESS_TOKEN environment variable")
+    
     if not APIConfig.OPENWEATHER_API_KEY:
         warnings.append("OpenWeather API key not found, weather data will be disabled")
     
+    if not APIConfig.GEONAMES_USERNAME:
+        warnings.append("Geonames username not found, will use coordinate-based timezone estimation")
+        warnings.append("Get free username at: https://www.geonames.org/login")
+    
     # Create required directories
     import os
-    for folder in [PathConfig.MAPS_FOLDER, PathConfig.FONTS_FOLDER]:
+    for folder in [PathConfig.MAPS_FOLDER, PathConfig.FONTS_FOLDER, PathConfig.WEATHER_ICONS_FOLDER]:
         if not os.path.exists(folder):
             os.makedirs(folder)
             print(f"📁 Created {folder} folder")
@@ -251,8 +262,8 @@ if __name__ == "__main__":
         print(f"  Display: {DisplayConfig.FINAL_WIDTH}x{DisplayConfig.FINAL_HEIGHT}")
         print(f"  Maps folder: {PathConfig.MAPS_FOLDER}")
         print(f"  Cache file: {PathConfig.CACHE_FILE}")
-        print(f"  Traffic colors: {len(TrafficConfig.TRAFFIC_COLORS)} levels")
-        print(f"  Timezone mappings: {len(TimezoneConfig.TIMEZONE_MAPPING)}")
+        print(f"  Weather icons folder: {PathConfig.WEATHER_ICONS_FOLDER}")
+        print(f"  Font config sizes: Title={FontConfig.TITLE_SIZE}, Temp={FontConfig.TEMP_SIZE}")
         
     else:
         print("❌ Configuration errors:")

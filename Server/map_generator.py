@@ -13,7 +13,7 @@ from typing import Dict, Optional
 from PIL import Image
 
 # Import specialized modules
-from data_providers import WeatherProvider, TimezoneProvider, LocationProvider
+from data_providers import WeatherProvider, GeolocationProvider
 from image_composition import OverlayComposer
 from utils import EpaperConverter
 from map_providers.mapbox import get_mapbox_provider
@@ -50,8 +50,7 @@ class MapGenerator:
         # Initialize data providers
         weather_key = weather_api_key or os.getenv('OPENWEATHER_API_KEY')
         self.weather_provider = WeatherProvider(weather_key, icons_dir=PathConfig.WEATHER_ICONS_FOLDER)
-        self.timezone_provider = TimezoneProvider()
-        self.location_provider = LocationProvider(cache_file)
+        self.geolocation_provider = GeolocationProvider(cache_file)
         
         # Initialize image composition
         self.overlay_composer = OverlayComposer(final_width=480, final_height=800)
@@ -68,7 +67,7 @@ class MapGenerator:
     def get_coordinates_from_location(self, city: str, country: str) -> tuple[float, float]:
         """
         Get coordinates (lat, lng) for a city and country.
-        Uses the location provider for caching and geocoding.
+        Uses the geolocation provider for caching and geocoding.
 
         Args:
             city: City name
@@ -80,7 +79,8 @@ class MapGenerator:
         Raises:
             Exception: If location cannot be found or API error occurs
         """
-        return self.location_provider.get_coordinates(city, country)
+        location_data = self.geolocation_provider.get_location_data(city, country)
+        return location_data['lat'], location_data['lng']
 
     def get_weather_data(self, lat: float, lng: float) -> Optional[Dict]:
         """
@@ -107,39 +107,28 @@ class MapGenerator:
         """
         return self.weather_provider.download_weather_icon(icon_code)
 
-    def get_local_datetime(self, city: str, country: str, lat: float, lng: float) -> tuple[str, str, str, str]:
+    def get_local_datetime(self, city: str, country: str, lat: float = None, lng: float = None) -> tuple[str, str, str, str]:
         """
         Get local date and time for coordinates with caching.
 
         Args:
             city: City name
             country: Country name
-            lat: Latitude
-            lng: Longitude
+            lat: Latitude (not used, kept for compatibility)
+            lng: Longitude (not used, kept for compatibility)
 
         Returns:
             Tuple of (date_string, time_string, timezone_name, utc_offset)
         """
         try:
-            # Check if timezone is cached for this location
-            cached_timezone, cached_offset = self.location_provider.get_cached_timezone_data(city, country)
+            # Get complete location data (includes timezone info)
+            location_data = self.geolocation_provider.get_location_data(city, country)
             
-            # Get timezone information
-            timezone_name, utc_offset = self.timezone_provider.get_timezone_for_location(
-                city=city, 
-                country=country, 
-                lat=lat, 
-                lng=lng,
-                cached_timezone=cached_timezone,
-                cached_offset=cached_offset
-            )
+            timezone_name = location_data['timezone']
+            utc_offset = location_data['utc_offset']
             
-            # Cache timezone data if not already cached
-            if not cached_timezone:
-                self.location_provider.cache_timezone_data(city, country, timezone_name, utc_offset)
-
             # Get formatted local time
-            date_str, time_str = self.timezone_provider.get_local_datetime(timezone_name)
+            date_str, time_str = self.geolocation_provider.get_local_datetime(timezone_name)
 
             return date_str, time_str, timezone_name, utc_offset
 
@@ -183,8 +172,9 @@ class MapGenerator:
         Returns:
             Path of saved file
         """
-        # Get coordinates from cache or API
-        lat, lng = self.get_coordinates_from_location(city, country)
+        # Get complete location data (coordinates + timezone)
+        location_data = self.geolocation_provider.get_location_data(city, country)
+        lat, lng = location_data['lat'], location_data['lng']
 
         # Get weather data if requested
         weather_data = None
@@ -194,8 +184,10 @@ class MapGenerator:
             if weather_data:
                 weather_icon = self.download_weather_icon(weather_data['icon'])
 
-        # Get local datetime
-        date_str, time_str, timezone_name, utc_offset = self.get_local_datetime(city, country, lat, lng)
+        # Get local datetime from location data
+        timezone_name = location_data['timezone']
+        utc_offset = location_data['utc_offset']
+        date_str, time_str = self.geolocation_provider.get_local_datetime(timezone_name)
 
         # Generate base map using Mapbox
         print(f"🗺️  Generating map for {city}, {country} (zoom: {zoom})...")
@@ -275,11 +267,11 @@ class MapGenerator:
         Returns:
             Dictionary with cached locations
         """
-        return self.location_provider.list_cached_locations()
+        return self.geolocation_provider.list_cached_locations()
 
     def clear_cache(self):
         """Clear all cached locations."""
-        self.location_provider.clear_cache()
+        self.geolocation_provider.clear_cache()
 
 
 def main():
