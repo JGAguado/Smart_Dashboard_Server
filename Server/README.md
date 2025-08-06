@@ -158,7 +158,7 @@ The system generates both high-quality PNG images and e-paper optimized versions
 </tr>
 <tr>
 <td><img src="Maps/Vienna_Austria.png" alt="Original PNG map" width="240" height="400"/></td>
-<td><img src="Maps/Vienna_Austria_epd.png" alt="E-paper visualization" width="400" height="240"/></td>
+<td><img src="Maps/Vienna_Austria_epd.png" alt="E-paper visualization" width="240" height="400"/></td>
 </tr>
 </table>
 

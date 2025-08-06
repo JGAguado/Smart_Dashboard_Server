@@ -129,6 +129,8 @@ class EpaperVisualizer:
             
             # Create PIL image and save
             img = Image.fromarray(img_array, 'RGB')
+            img = img.rotate(90, expand=True)
+
             img.save(png_path, 'PNG', optimize=True)
             
             print(f"✅ Visualization saved to: {png_path}")
