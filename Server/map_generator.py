@@ -17,6 +17,7 @@ from data_providers import WeatherProvider, TimezoneProvider, LocationProvider
 from image_composition import OverlayComposer
 from utils import EpaperConverter
 from map_providers.mapbox import get_mapbox_provider
+from config.settings import PathConfig
 
 
 class MapGenerator:
@@ -48,7 +49,7 @@ class MapGenerator:
 
         # Initialize data providers
         weather_key = weather_api_key or os.getenv('OPENWEATHER_API_KEY')
-        self.weather_provider = WeatherProvider(weather_key)
+        self.weather_provider = WeatherProvider(weather_key, icons_dir=PathConfig.WEATHER_ICONS_FOLDER)
         self.timezone_provider = TimezoneProvider()
         self.location_provider = LocationProvider(cache_file)
         

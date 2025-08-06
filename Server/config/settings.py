@@ -21,7 +21,6 @@ class APIConfig:
     
     # Weather API
     OPENWEATHER_CURRENT_URL = "http://api.openweathermap.org/data/2.5/weather"
-    OPENWEATHER_ICON_URL = "http://openweathermap.org/img/wn/{icon}@2x.png"
 
 # Display Configuration
 class DisplayConfig:
@@ -63,6 +62,7 @@ class PathConfig:
     # Base directories
     MAPS_FOLDER = "Maps"
     FONTS_FOLDER = "fonts"
+    WEATHER_ICONS_FOLDER = "utils/icons"
     CACHE_FILE = "locations_cache.json"
     
     # Font files
@@ -86,6 +86,9 @@ class FontConfig:
     TIME_SIZE = 24       # Time
     WEATHER_SIZE = 18    # Weather information
     INFO_SIZE = 16       # General info text
+    
+    # Weather icon size
+    WEATHER_ICON_SIZE = 80  # Weather icon size in pixels
     
     # Colors
     TEXT_COLOR = (0, 0, 0)        # Pure black
@@ -211,13 +214,7 @@ def validate_configuration():
     errors = []
     warnings = []
     
-    # Check required API keys
-    if not APIConfig.GOOGLE_MAPS_API_KEY:
-        if not APIConfig.BING_MAPS_API_KEY:
-            errors.append("No map API key found. Set GOOGLE_MAPS_API_KEY or BING_MAPS_API_KEY")
-        else:
-            warnings.append("Google Maps API key not found, will use Bing Maps only")
-    
+
     if not APIConfig.OPENWEATHER_API_KEY:
         warnings.append("OpenWeather API key not found, weather data will be disabled")
     

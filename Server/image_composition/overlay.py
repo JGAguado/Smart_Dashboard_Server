@@ -8,6 +8,7 @@ Handles creating information overlays on map images with weather, time, and loca
 from PIL import Image, ImageDraw
 from typing import Optional, Dict, Tuple
 from .fonts import FontManager
+from config.settings import FontConfig
 
 
 class OverlayComposer:
@@ -34,14 +35,15 @@ class OverlayComposer:
         self.final_height = final_height
         self.font_manager = FontManager()
         
-        # Define optimized font sizes for 480x800px dashboard display
-        self.TITLE_SIZE = 24      # City/Country - larger for prominence  
-        self.COORD_SIZE = 16      # Coordinates - readable but smaller
-        self.TEMP_SIZE = 28       # Temperature - prominent, most important
-        self.DATE_SIZE = 18       # Date - clear and readable
-        self.TIME_SIZE = 24       # Time - important, same as title
+        # Use font sizes from configuration
+        self.TITLE_SIZE = FontConfig.TITLE_SIZE
+        self.COORD_SIZE = FontConfig.COORD_SIZE
+        self.TEMP_SIZE = FontConfig.TEMP_SIZE
+        self.DATE_SIZE = FontConfig.DATE_SIZE
+        self.TIME_SIZE = FontConfig.TIME_SIZE
+        self.WEATHER_ICON_SIZE = FontConfig.WEATHER_ICON_SIZE
         
-        print(f"🔤 Optimized fonts for {final_width}x{final_height}px - Title: {self.TITLE_SIZE}px, Temp: {self.TEMP_SIZE}px, Time: {self.TIME_SIZE}px")
+        print(f"🔤 Using font configuration for {final_width}x{final_height}px - Title: {self.TITLE_SIZE}px, Temp: {self.TEMP_SIZE}px, Time: {self.TIME_SIZE}px")
     
     def add_info_overlay(self, image: Image.Image, city: str, country: str, 
                         lat: float, lng: float, date_str: str, time_str: str,
@@ -137,8 +139,8 @@ class OverlayComposer:
             temp_text = f"{weather_data['temperature']}°C"
 
             if weather_icon:
-                # Optimized icon size for better proportion with larger fonts
-                icon_size = 80  # Balanced size for dashboard display
+                # Use icon size from configuration
+                icon_size = self.WEATHER_ICON_SIZE
 
                 # Resize first, then handle transparency properly
                 weather_icon = weather_icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
@@ -177,7 +179,7 @@ class OverlayComposer:
                 max_height = max(datetime_height, icon_size, temp_height)
 
                 # Draw datetime group (left) - vertically centered
-                datetime_y_offset = (max_height - datetime_height) // 2
+                datetime_y_offset = (max_height - int(datetime_height*0.75)) // 2
                 date_x = datetime_group_x + (datetime_width - (date_bbox[2] - date_bbox[0])) // 2
                 time_x = datetime_group_x + (datetime_width - (time_bbox[2] - time_bbox[0])) // 2
 
@@ -185,12 +187,13 @@ class OverlayComposer:
                 draw.text((time_x, element_y + datetime_y_offset + 20), time_str, fill=text_color, font=time_font)
 
                 # Draw weather icon (center) - vertically centered with proper transparency
-                icon_y_offset = (max_height - icon_size) // 2
+                icon_y_offset = (max_height - int(icon_size*0.75)) // 2
                 # Use the alpha channel as mask for proper transparency blending
                 image.paste(weather_icon, (icon_x, element_y + icon_y_offset), weather_icon)
 
-                # Draw temperature (right) - vertically centered
-                temp_y_offset = (max_height - temp_height) // 2
+                # Draw temperature (right) - align with weather icon center for better visual balance
+                # Instead of centering vertically, align with the icon's vertical center
+                temp_y_offset = icon_y_offset + (icon_size - temp_height*2) // 2
                 draw.text((temp_x, element_y + temp_y_offset), temp_text, fill=text_color, font=temp_font)
 
             else:

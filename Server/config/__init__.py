@@ -3,7 +3,6 @@
 from .settings import (
     APIConfig,
     DisplayConfig, 
-    TrafficConfig,
     PathConfig,
     FontConfig,
     TimezoneConfig,
@@ -15,7 +14,6 @@ from .settings import (
 __all__ = [
     'APIConfig',
     'DisplayConfig',
-    'TrafficConfig', 
     'PathConfig',
     'FontConfig',
     'TimezoneConfig',
