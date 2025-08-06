@@ -8,8 +8,9 @@ on:
     # Allow manual triggering
 
 env:
-  GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+  MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
   OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+  GEONAMES_USERNAME: ${{ secrets.GEONAMES_USERNAME }}
 
 jobs:
   generate-maps:
