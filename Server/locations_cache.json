@@ -1,39 +1,11 @@
 {
-  "paris, france": {
-    "lat": 48.8575475,
-    "lng": 2.3513765,
-    "city": "Paris",
-    "country": "France",
-    "formatted_address": "Paris, France"
-  },
-  "london, uk": {
-    "lat": 51.5072178,
-    "lng": -0.1275862,
-    "city": "London",
-    "country": "Uk",
-    "formatted_address": "London, UK"
-  },
-  "berlin, germany": {
-    "lat": 52.52000659999999,
-    "lng": 13.404954,
-    "city": "Berlin",
-    "country": "Germany",
-    "formatted_address": "Berlin, Germany"
-  },
   "vienna, austria": {
-    "lat": 48.20806959999999,
-    "lng": 16.3713095,
+    "lat": 48.208354,
+    "lng": 16.372504,
+    "timezone": "Europe/Vienna",
+    "utc_offset": "+1",
     "city": "Vienna",
     "country": "Austria",
-    "formatted_address": "Vienna, Austria",
-    "timezone": "Europe/Vienna",
-    "utc_offset": "+2"
-  },
-  "madrid, spain": {
-    "lat": 40.41672790000001,
-    "lng": -3.7032905,
-    "city": "Madrid",
-    "country": "Spain",
-    "formatted_address": "Madrid, Spain"
+    "formatted_address": "Vienna, Austria"
   }
 }
